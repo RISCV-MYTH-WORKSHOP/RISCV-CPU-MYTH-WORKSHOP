@@ -48,30 +48,28 @@
          $inc_pc[31:0] = $pc + 'd4;
          $imem_rd_en = !$reset;
          $imem_rd_addr[M4_IMEM_INDEX_CNT-1 : 0] = $pc[M4_IMEM_INDEX_CNT+1:2];
-         
+
       // YOUR CODE HERE
       @1
-         
-         
          $instr[31:0] = $imem_rd_data;
-         
+
          $is_i_instr =  $instr[6:2] ==? 5'b0000x ||
                         $instr[6:2] ==? 5'b001x0 ||
                         $instr[6:2] ==? 5'b11001 ;
                         //$instr[6:2] == 5'b11100 ;
-         
+
          $is_j_instr =  $instr[6:2] == 5'b11011 ;
-         
+
          $is_r_instr =  $instr[6:2] ==? 5'b011x0 ||
                         $instr[6:2] == 5'b01011 ||
                         $instr[6:2] == 5'b10100;
-                        
+
          $is_s_instr =  $instr[6:2] ==? 5'b0100x;
-         
+
          $is_u_instr =  $instr[6:2] ==? 5'b0x101;
-         
+
          $is_b_instr =  $instr[6:2] == 5'b11000;
-         
+
          $imm[31:0] = $is_i_instr ? { {21{$instr[31]}} , $instr[30:20] }
                     : $is_s_instr ? { {21{$instr[31]}} , $instr[30:25] , $instr[11:7] }
                     : $is_b_instr ? { {20{$instr[31]}} , $instr[7] , $instr[30:25] , $instr[11:8] ,  1'b0 }
@@ -83,9 +81,9 @@
          $rd_valid = $is_r_instr || $is_i_instr || $is_u_instr || $is_j_instr;
          $funct3_valid = $is_r_instr || $is_i_instr || $is_s_instr || $is_b_instr;
          $funct7_valid = $is_r_instr;
-         
-         
-         
+
+
+
          ?$rs2_valid
             $rs2[4:0] = $instr[24:20];
          ?$rs1_valid
@@ -94,13 +92,13 @@
             $rd[4:0] = $instr[11:7];
          ?$funct3_valid
             $funct3[2:0] = $instr[14:12];
-         ?$funct7_valid   
+         ?$funct7_valid
             $funct7[6:0] = $instr[31:25];
-            
-         
+
+
          $opcode[6:0] = $instr[6:0];
          $dec_bits[10:0] = {$funct7[5] , $funct3 , $opcode};
-         
+
          $is_beq = $dec_bits ==? 11'bx_000_1100011;
          $is_bne = $dec_bits ==? 11'bx_001_1100011;
          $is_blt = $dec_bits ==? 11'bx_100_1100011;
@@ -109,33 +107,32 @@
          $is_bgeu = $dec_bits ==? 11'bx_111_1100011;
          $is_addi = $dec_bits ==? 11'bx_000_0010011;
          $is_add = $dec_bits ==? 11'bx_000_0110011;
-         
+
          `BOGUS_USE($is_beq $is_bne $is_blt $is_bge $is_bltu $is_bgeu $is_addi $is_add)
-         
-         $src1_value[31:0] = $rf_rd_data1;
-         $src2_value[31:0] = $rf_rd_data2;
-         
+
+      @2
          $rf_rd_en2 = $rs2_valid;
          $rf_rd_en1 = $rs1_valid;
          $rf_wr_en = ($rd != 5'b0) && ($valid) && ($rd_valid);
-                  
+
          ?$rf_rd_en1
             $rf_rd_index1[4:0] = $rs1[4:0]; //Input index values iff enable is valid
          ?$rf_rd_en2
             $rf_rd_index2[4:0] = $rs2[4:0];
          ?$rf_wr_en
             $rf_wr_index[4:0] = $rd[4:0];
-         
+
+      @3
          $src1_value[31:0] = $rf_rd_data1;
          $src2_value[31:0] = $rf_rd_data2;
          
          $result[31:0] = $is_addi ? $src1_value + $imm 
                        : $is_add ? $src1_value +$src2_value
                        : 'bx;
-         
-         $rf_wr_data [31:0] = $result;
-         
-         
+
+         $rf_wr_data[31:0] = $result;
+
+
          $taken_br = $is_beq ? ($src1_value == $src2_value)
                    : $is_bne ? ($src1_value != $src2_value)
                    : $is_blt ? (($src1_value < $src2_value) ^ ($src1_value[31] != $src2_value[31]))
@@ -143,18 +140,18 @@
                    : $is_bltu ? ($src1_value < $src2_value)
                    : $is_bgeu ? ($src1_value >= $src2_value)
                    : 'b0;
-                   
+
          $br_tgt_pc[31:0] = $pc + $imm;
          $valid_taken_br = $valid && $taken_br;
          *passed = |cpu/xreg[10]>>5$value == (1+2+3+4+5+6+7+8+9);
-         
+
 
 
       // Note: Because of the magic we are using for visualisation, if visualisation is enabled below,
       //       be sure to avoid having unassigned signals (which you might be using for random inputs)
       //       other than those specifically expected in the labs. You'll get strange errors for these.
 
-   
+
    // Assert these to end simulation (before Makerchip cycle limit).
    *passed = *cyc_cnt > 40;
    *failed = 1'b0;
@@ -166,7 +163,7 @@
    //  o CPU visualization
    |cpu
       m4+imem(@1)    // Args: (read stage)
-      m4+rf(@1, @1)  // Args: (read stage, write stage) - if equal, no register bypass is required
+      m4+rf(@2, @3) // Args: (read stage, write stage) - if equal, no register bypass is required
       //m4+dmem(@4)    // Args: (read/write stage)
    
    m4+cpu_viz(@4)    // For visualisation, argument should be at least equal to the last stage of CPU logic. @4 would work for all labs.
