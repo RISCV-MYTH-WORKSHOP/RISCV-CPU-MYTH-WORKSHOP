@@ -7,7 +7,7 @@
 \SV
    m4_makerchip_module   // (Expanded in Nav-TLV pane.)
 \TLV
-
+//My Code
    // /====================\
    // | Sum 1 to 9 Program |
    // \====================/
@@ -40,13 +40,15 @@
    |cpu
       @0
          $reset = *reset;
-         $pc[31:0] = >>1$reset ? 'd0 : (>>1$pc + 'd4);
-         
+         $pc[31:0] = >>1$reset ? 'd0 
+                   :>>1$taken_br ? >>1$br_tgt_pc
+                   : (>>1$pc + 'd4);
+         $imem_rd_en = !$reset;
+         $imem_rd_addr[M4_IMEM_INDEX_CNT-1 : 0] = $pc[M4_IMEM_INDEX_CNT+1:2];
       
       // YOUR CODE HERE
       @1
-         $imem_rd_en = ~$reset;
-         $imem_rd_addr[M4_IMEM_INDEX_CNT-1 : 0] = $pc[M4_IMEM_INDEX_CNT+1:2];
+         
          $instr[31:0] = $imem_rd_data;
          
          $is_i_instr =  $instr[6:2] ==? 5'b0000x ||
@@ -69,7 +71,7 @@
          $imm[31:0] = $is_i_instr ? { {21{$instr[31]}} , $instr[30:20] }
                     : $is_s_instr ? { {21{$instr[31]}} , $instr[30:25] , $instr[11:7] }
                     : $is_b_instr ? { {20{$instr[31]}} , $instr[7] , $instr[30:25] , $instr[11:8] ,  1'b0 }
-                    : $is_u_instr ? { $instr[31:12] , {12{1'b0}} }
+                    : $is_u_instr ? { $instr[31:12] , 12'b0 }
                     : $is_j_instr ? { {12{$instr[31]}} , $instr[19:12] , $instr[20] , $instr[30:21] , 1'b0}
                     :'b0;
          $rs2_valid = $is_r_instr || $is_s_instr || $is_b_instr;
@@ -79,21 +81,20 @@
          $funct7_valid = $is_r_instr;
          
          
+         
          ?$rs2_valid
             $rs2[4:0] = $instr[24:20];
-            $rf_rd_en2 = 1'b1;
          ?$rs1_valid
             $rs1[4:0] = $instr[19:15];
-            $rf_rd_en1 = 1'b1;
          ?$rd_valid
             $rd[4:0] = $instr[11:7];
-            $rf_wr_en = $rd == 'b0 ? 1'b0 : 1'b1;
          ?$funct3_valid
             $funct3[2:0] = $instr[14:12];
          ?$funct7_valid   
             $funct7[6:0] = $instr[31:25];
-         $opcode[6:0] = $instr[6:0];
+            
          
+         $opcode[6:0] = $instr[6:0];
          $dec_bits[10:0] = {$funct7[5] , $funct3 , $opcode};
          
          $is_beq = $dec_bits ==? 11'bx_000_1100011;
@@ -110,9 +111,36 @@
          $src1_value[31:0] = $rf_rd_data1;
          $src2_value[31:0] = $rf_rd_data2;
          
+         $rf_rd_en2 = $rs2_valid;
+         $rf_rd_en1 = $rs1_valid;
+         $rf_wr_en = ($rd_valid && $rd != 5'b0);
+                  
+         ?$rf_rd_en1
+            $rf_rd_index1[4:0] = $rs1[4:0]; //Input index values iff enable is valid
+         ?$rf_rd_en2
+            $rf_rd_index2[4:0] = $rs2[4:0];
+         ?$rf_wr_en
+            $rf_wr_index[4:0] = $rd[4:0];
+         
+         $src1_value[31:0] = $rf_rd_data1;
+         $src2_value[31:0] = $rf_rd_data2;
+         
          $result[31:0] = $is_addi ? $src1_value + $imm 
                        : $is_add ? $src1_value +$src2_value
-                       : 'b0;
+                       : 'bx;
+         
+         $rf_wr_data [31:0] = $result;
+         
+         
+         $taken_br = $is_beq ? ($src1_value == $src2_value)
+                   : $is_bne ? ($src1_value != $src2_value)
+                   : $is_blt ? (($src1_value < $src2_value) ^ ($src1_value[31] != $scr2_value[31]))
+                   : $is_bge ? (($src1_value >= $src2_value) ^ ($src1_value[31] != $scr2_value[31]))
+                   : $is_bltu ? ($src1_value < $src2_value)
+                   : $is_bgeu ? ($src1_value >= $src2_value)
+                   : 'b0;
+                   
+         $br_tgt_pc = $pc + $imm;
          
          
 
