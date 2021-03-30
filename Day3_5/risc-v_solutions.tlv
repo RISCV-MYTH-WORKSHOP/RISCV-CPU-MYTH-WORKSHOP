@@ -39,17 +39,19 @@
 
    |cpu
       @0
-         $reset = *reset;
-         $pc[31:0] = >>1$reset ? 'd0 
-                   :>>1$taken_br ? >>1$br_tgt_pc
-                   : (>>1$pc + 'd4);
-         $imem_rd_en = !$reset;
-         $imem_rd_addr[M4_IMEM_INDEX_CNT-1 : 0] = $pc[M4_IMEM_INDEX_CNT+1:2];
+         $reset = *reset;         
          $start = ((>>1$reset == 1'b1)&&($reset == 1'b0)) ? 1'b1 : 1'b0;
          $valid = $start ? $start : >>3$valid;
-      
+         $pc[31:0] = >>1$reset ? 'd0 
+                   :>>3$valid_taken_br ? >>3$br_tgt_pc
+                   : (>>3$inc_pc);//Unless the reset signal is high, the pc increments 3 stages ahead.
+         $inc_pc[31:0] = $pc + 'd4;
+         $imem_rd_en = !$reset;
+         $imem_rd_addr[M4_IMEM_INDEX_CNT-1 : 0] = $pc[M4_IMEM_INDEX_CNT+1:2];
+         
       // YOUR CODE HERE
       @1
+         
          
          $instr[31:0] = $imem_rd_data;
          
@@ -115,7 +117,7 @@
          
          $rf_rd_en2 = $rs2_valid;
          $rf_rd_en1 = $rs1_valid;
-         $rf_wr_en = ($rd == 5'b0) ? 1'b0 : $rd_valid;
+         $rf_wr_en = ($rd != 5'b0) && ($valid) && ($rd_valid);
                   
          ?$rf_rd_en1
             $rf_rd_index1[4:0] = $rs1[4:0]; //Input index values iff enable is valid
@@ -143,6 +145,7 @@
                    : 'b0;
                    
          $br_tgt_pc[31:0] = $pc + $imm;
+         $valid_taken_br = $valid && $taken_br;
          *passed = |cpu/xreg[10]>>5$value == (1+2+3+4+5+6+7+8+9);
          
 
