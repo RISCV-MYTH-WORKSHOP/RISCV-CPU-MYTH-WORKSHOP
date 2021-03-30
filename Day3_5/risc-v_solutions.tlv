@@ -113,7 +113,7 @@
          
          $rf_rd_en2 = $rs2_valid;
          $rf_rd_en1 = $rs1_valid;
-         $rf_wr_en = ($rd_valid && $rd != 5'b0);
+         $rf_wr_en = ($rd == 5'b0) ? 1'b0 : $rd_valid;
                   
          ?$rf_rd_en1
             $rf_rd_index1[4:0] = $rs1[4:0]; //Input index values iff enable is valid
@@ -134,14 +134,14 @@
          
          $taken_br = $is_beq ? ($src1_value == $src2_value)
                    : $is_bne ? ($src1_value != $src2_value)
-                   : $is_blt ? (($src1_value < $src2_value) ^ ($src1_value[31] != $scr2_value[31]))
-                   : $is_bge ? (($src1_value >= $src2_value) ^ ($src1_value[31] != $scr2_value[31]))
+                   : $is_blt ? (($src1_value < $src2_value) ^ ($src1_value[31] != $src2_value[31]))
+                   : $is_bge ? (($src1_value >= $src2_value) ^ ($src1_value[31] != $src2_value[31]))
                    : $is_bltu ? ($src1_value < $src2_value)
                    : $is_bgeu ? ($src1_value >= $src2_value)
                    : 'b0;
                    
-         $br_tgt_pc = $pc + $imm;
-         
+         $br_tgt_pc[31:0] = $pc + $imm;
+         *passed = |cpu/xreg[10]>>5$value == (1+2+3+4+5+6+7+8+9);
          
 
 
