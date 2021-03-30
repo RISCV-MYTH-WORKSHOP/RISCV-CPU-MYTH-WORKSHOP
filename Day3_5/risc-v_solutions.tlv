@@ -45,6 +45,8 @@
                    : (>>1$pc + 'd4);
          $imem_rd_en = !$reset;
          $imem_rd_addr[M4_IMEM_INDEX_CNT-1 : 0] = $pc[M4_IMEM_INDEX_CNT+1:2];
+         $start = ((>>1$reset == 1'b1)&&($reset == 1'b0)) ? 1'b1 : 1'b0;
+         $valid = $start ? $start : >>3$valid;
       
       // YOUR CODE HERE
       @1
