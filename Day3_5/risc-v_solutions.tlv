@@ -32,17 +32,19 @@
    m4_asm(ADDI, r13, r13, 1)            // Increment intermediate register by 1
    m4_asm(BLT, r13, r12, 1111111111000) // If a3 is less than a2, branch to label named <loop>
    m4_asm(ADD, r10, r14, r0)            // Store final result to register a0 so that it can be read by main program
-   
+
    // Optional:
    // m4_asm(JAL, r7, 00000000000000000000) // Done. Jump to itself (infinite loop). (Up to 20-bit signed immediate plus implicit 0 bit (unlike JALR) provides byte address; last immediate bit should also be 0)
    m4_define_hier(['M4_IMEM'], M4_NUM_INSTRS)
 
    |cpu
       @0
-         $reset = *reset;         
+         $reset = *reset;
          $start = ((>>1$reset == 1'b1)&&($reset == 1'b0)) ? 1'b1 : 1'b0;
-         $valid = $start ? $start : >>3$valid;
-         $pc[31:0] = >>1$reset ? 'd0 
+         $valid = $reset ? 1'b0 
+                :$start ? $start 
+                : >>3$valid;
+         $pc[31:0] = >>1$reset ? 'd0
                    :>>3$valid_taken_br ? >>3$br_tgt_pc
                    : (>>3$inc_pc);//Unless the reset signal is high, the pc increments 3 stages ahead.
          $inc_pc[31:0] = $pc + 'd4;
@@ -120,13 +122,13 @@
          ?$rf_rd_en2
             $rf_rd_index2[4:0] = $rs2[4:0];
          ?$rf_wr_en
-            $rf_wr_index[4:0] = $rd[4:0];
+         $rf_wr_index[4:0] = $rd[4:0];
+         //If an instruction asks for a register that is to be yet assigned an updated value (due to pipelining) by the previous instruction then its a read after write register dependency
+         $src1_value[31:0] = (>>1$rf_wr_en) && (>>1$rf_wr_index == $rf_rd_index1) ? (>>1$result) : $rf_rd_data1;//Take previous instruction result if there a read after write register dependency
+         $src2_value[31:0] = (>>1$rf_wr_en) && (>>1$rf_wr_index == $rf_rd_index2) ? (>>1$result) : $rf_rd_data2;//Take previous instruction result if there a read after write register dependency
 
       @3
-         $src1_value[31:0] = $rf_rd_data1;
-         $src2_value[31:0] = $rf_rd_data2;
-         
-         $result[31:0] = $is_addi ? $src1_value + $imm 
+         $result[31:0] = $is_addi ? $src1_value + $imm
                        : $is_add ? $src1_value +$src2_value
                        : 'bx;
 
@@ -155,7 +157,7 @@
    // Assert these to end simulation (before Makerchip cycle limit).
    *passed = *cyc_cnt > 40;
    *failed = 1'b0;
-   
+
    // Macro instantiations for:
    //  o instruction memory
    //  o register file
@@ -165,7 +167,7 @@
       m4+imem(@1)    // Args: (read stage)
       m4+rf(@2, @3) // Args: (read stage, write stage) - if equal, no register bypass is required
       //m4+dmem(@4)    // Args: (read/write stage)
-   
+
    m4+cpu_viz(@4)    // For visualisation, argument should be at least equal to the last stage of CPU logic. @4 would work for all labs.
 \SV
    endmodule
