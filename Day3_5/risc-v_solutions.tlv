@@ -40,13 +40,13 @@
    |cpu
       @0
          $reset = *reset;
-         $start = ((>>1$reset == 1'b1)&&($reset == 1'b0)) ? 1'b1 : 1'b0;
-         $valid = $reset ? 1'b0 
-                :$start ? $start 
-                : >>3$valid;
+         //$start = ((>>1$reset == 1'b1)&&($reset == 1'b0)) ? 1'b1 : 1'b0;
+         //$valid = $reset ? 1'b0 
+         //       :$start ? $start 
+         //       : >>3$valid;
          $pc[31:0] = >>1$reset ? 'd0
                    :>>3$valid_taken_br ? >>3$br_tgt_pc
-                   : (>>3$inc_pc);//Unless the reset signal is high, the pc increments 3 stages ahead.
+                   : (>>1$inc_pc);//Unless the reset signal is high, the pc increments 3 stages ahead.
          $inc_pc[31:0] = $pc + 'd4;
          $imem_rd_en = !$reset;
          $imem_rd_addr[M4_IMEM_INDEX_CNT-1 : 0] = $pc[M4_IMEM_INDEX_CNT+1:2];
@@ -115,7 +115,7 @@
       @2
          $rf_rd_en2 = $rs2_valid;
          $rf_rd_en1 = $rs1_valid;
-         $rf_wr_en = ($rd != 5'b0) && ($valid) && ($rd_valid);
+         
 
          ?$rf_rd_en1
             $rf_rd_index1[4:0] = $rs1[4:0]; //Input index values iff enable is valid
@@ -128,13 +128,11 @@
          $src2_value[31:0] = (>>1$rf_wr_en) && (>>1$rf_wr_index == $rf_rd_index2) ? (>>1$result) : $rf_rd_data2;//Take previous instruction result if there a read after write register dependency
 
       @3
+         $rf_wr_en = ($rd != 5'b0) && ($valid) && ($rd_valid);
          $result[31:0] = $is_addi ? $src1_value + $imm
                        : $is_add ? $src1_value +$src2_value
                        : 'bx;
-
          $rf_wr_data[31:0] = $result;
-
-
          $taken_br = $is_beq ? ($src1_value == $src2_value)
                    : $is_bne ? ($src1_value != $src2_value)
                    : $is_blt ? (($src1_value < $src2_value) ^ ($src1_value[31] != $src2_value[31]))
@@ -144,7 +142,9 @@
                    : 'b0;
 
          $br_tgt_pc[31:0] = $pc + $imm;
-         $valid_taken_br = $valid && $taken_br;
+         $valid = !((>>1$valid_taken_br) || (>>2$valid_taken_br));//If either of the previous two instructions have executed a branch,
+         $valid_taken_br = $valid && $taken_br;                   //the instruction following it is killed or rendered invalid.            
+
          *passed = |cpu/xreg[10]>>5$value == (1+2+3+4+5+6+7+8+9);
 
 
