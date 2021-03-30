@@ -77,6 +77,8 @@
          $rd_valid = $is_r_instr || $is_i_instr || $is_u_instr || $is_j_instr;
          $funct3_valid = $is_r_instr || $is_i_instr || $is_s_instr || $is_b_instr;
          $funct7_valid = $is_r_instr;
+         
+         
          ?$rs2_valid
             $rs2[4:0] = $instr[24:20];
          ?$rs1_valid
@@ -89,9 +91,18 @@
             $funct7[6:0] = $instr[31:25];
          $opcode[6:0] = $instr[6:0];
          
-
+         $dec_bits[10:0] = {$funct7[5] , $funct3 , $opcode};
          
+         $is_beq = $dec_bits ==? 11'bx_000_1100011;
+         $is_bne = $dec_bits ==? 11'bx_001_1100011;
+         $is_blt = $dec_bits ==? 11'bx_100_1100011;
+         $is_bge = $dec_bits ==? 11'bx_101_1100011;
+         $is_bltu = $dec_bits ==? 11'bx_110_1100011;
+         $is_bgeu = $dec_bits ==? 11'bx_111_1100011;
+         $is_addi = $dec_bits ==? 11'bx_000_0010011;
+         $is_add = $dec_bits ==? 11'bx_000_0110011;
          
+         `BOGUS_USE($is_beq $is_bne $is_blt $is_bge $is_bltu $is_bgeu $is_addi $is_add)
 
 
       // Note: Because of the magic we are using for visualisation, if visualisation is enabled below,
